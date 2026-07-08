@@ -183,7 +183,13 @@
       <div class="fld"><span class="lbl">Chapters done</span><input type="number" inputmode="decimal" min="0" id="chapters" placeholder="0" style="width:4.5rem"></div>
       <div class="hint" id="pagesHint" style="padding-bottom:12px; color:var(--dim)"></div>
     </div>
-    <p class="note">0.025/word · page bonus: 5 for page 1, ×1.75 each page after (cap 50/page) · +50 per finished chapter. 1,000 words ≈ 39 pts.</p>
+    <div style="height:10px"></div>
+    <div class="row">
+      <div class="fld"><span class="lbl">Guitar lesson</span><span class="inrow"><input type="number" inputmode="decimal" min="0" id="guitarLessonMin" placeholder="0"><span class="unit">min</span></span></div>
+      <div class="fld"><span class="lbl">Noodling</span><span class="inrow"><input type="number" inputmode="decimal" min="0" id="guitarPlayMin" placeholder="0"><span class="unit">min</span></span></div>
+      <div class="fld"><span class="lbl">Lessons done</span><input type="number" inputmode="decimal" min="0" id="guitarLessons" placeholder="0" style="width:4.5rem"></div>
+    </div>
+    <p class="note">0.025/word · page bonus: 5 for page 1, ×1.75 each page after (cap 50/page) · +50 per finished chapter. Guitar: 0.2/min lessons · 0.1/min playing around · +3 per lesson completed.</p>
   </section>
 
   <!-- P4 STUDY -->
@@ -344,7 +350,8 @@ function calc(d){
   const dietBonus = proteinTotal>=150 && kcalTotal<=2200 && kcalTotal>0 ? Math.floor(proteinTotal/10) : 0;
   const fuel = foods.reduce((s,f)=>s+f.pts,0) + dietBonus;
   const words = num(d.words);
-  const craft = words*0.025 + pageBonus(Math.floor(words/400)) + num(d.chapters)*50;
+  const guitar = num(d.guitarLessonMin)*0.2 + num(d.guitarPlayMin)*0.1 + num(d.guitarLessons)*3;
+  const craft = words*0.025 + pageBonus(Math.floor(words/400)) + num(d.chapters)*50 + guitar;
   const studyMin = num(d.readMin) + num(d.watchMin);
   const study = num(d.readMin)*0.3 + num(d.watchMin)*0.2 + num(d.notePages)*2 + studyBonus(studyMin);
   const sets = num(d.sets), ex = num(d.exercises);
@@ -532,7 +539,7 @@ function redeemPreviewRender(){
 }
 
 // ── wire day inputs ─────────────────────────────────────────────
-["medMin","journalPages","fictionPages","words","chapters","readMin","watchMin","notePages","sets","exercises"]
+["medMin","journalPages","fictionPages","words","chapters","guitarLessonMin","guitarPlayMin","guitarLessons","readMin","watchMin","notePages","sets","exercises"]
   .forEach(id=>{
     $(id).value = day[id]||"";
     $(id).addEventListener("input", e=>{ day[id]=e.target.value; persist(); render(); });
