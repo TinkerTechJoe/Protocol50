@@ -149,7 +149,7 @@
       <div class="fld"><span class="lbl">Journal</span><span class="inrow"><input type="number" inputmode="decimal" min="0" id="journalPages" placeholder="0"><span class="unit">pages</span></span></div>
       <div class="fld"><span class="lbl">Fiction</span><span class="inrow"><input type="number" inputmode="decimal" min="0" id="fictionPages" placeholder="0"><span class="unit">pages</span></span></div>
     </div>
-    <p class="note">0.6/min meditation (2× rate — earn it) · 2/journal page · 0.75/fiction page, +5 every 25 pages.</p>
+    <p class="note">1/min meditation · 2/journal page · 1/fiction page, +5 every 25 pages.</p>
   </section>
 
   <!-- P2 FUEL -->
@@ -168,7 +168,7 @@
     <div class="hint" id="foodPreview" hidden></div>
     <div class="list" id="foodList"></div>
     <div class="sub" id="foodTotals" hidden></div>
-    <p class="note">0.1/g protein × density multiplier (g protein per 100 kcal): ≥15→1.5× · ≥10→1.2× · ≥6→1.0× · ≥3→0.6× · &lt;3→0.2×. +3 bonus at 150g / ≤2200 kcal.</p>
+    <p class="note">0.1/g protein × density multiplier (g protein per 100 kcal): ≥15→2.5× · ≥10→1.5× · ≥6→1.0× · ≥3→0.6× · &lt;3→0.2×. Bonus: +1 per 10g protein once you're at 150g+ and ≤2200 kcal (min +15).</p>
   </section>
 
   <!-- P3 CRAFT -->
@@ -183,7 +183,7 @@
       <div class="fld"><span class="lbl">Chapters done</span><input type="number" inputmode="decimal" min="0" id="chapters" placeholder="0" style="width:4.5rem"></div>
       <div class="hint" id="pagesHint" style="padding-bottom:12px; color:var(--dim)"></div>
     </div>
-    <p class="note">0.015/word · +4 per 400-word page (auto) · +50 per finished chapter. 1,000 words ≈ 23 pts.</p>
+    <p class="note">0.025/word · page bonus: 5 for page 1, ×1.75 each page after (cap 50/page) · +50 per finished chapter. 1,000 words ≈ 39 pts.</p>
   </section>
 
   <!-- P4 STUDY -->
@@ -198,7 +198,7 @@
       <div class="fld"><span class="lbl">Watching</span><span class="inrow"><input type="number" inputmode="decimal" min="0" id="watchMin" placeholder="0"><span class="unit">min</span></span></div>
       <div class="fld"><span class="lbl">Notes</span><span class="inrow"><input type="number" inputmode="decimal" min="0" id="notePages" placeholder="0"><span class="unit">pages</span></span></div>
     </div>
-    <p class="note">0.3/min reading · 0.2/min watching · +2 per page of notes. 60 min read + notes ≈ 22 pts.</p>
+    <p class="note">0.3/min reading · 0.2/min watching · +2 per page of notes · hourly milestone: +5 first hour, doubling each hour (cap 40/hr).</p>
   </section>
 
   <!-- P5 IRON -->
@@ -310,8 +310,8 @@ function persist(){
 }
 
 // ── scoring engine ──────────────────────────────────────────────
-const densityTier = r => r>=15?{mult:1.5,label:"S-TIER",color:"var(--green)"}
-  : r>=10?{mult:1.2,label:"LEAN",color:"var(--cyan)"}
+const densityTier = r => r>=15?{mult:2.5,label:"S-TIER",color:"var(--green)"}
+  : r>=10?{mult:1.5,label:"LEAN",color:"var(--cyan)"}
   : r>=6 ?{mult:1.0,label:"SOLID",color:"var(--amber)"}
   : r>=3 ?{mult:0.6,label:"MIXED",color:"var(--dim)"}
   : {mult:0.2,label:"JUNK",color:"var(--rose)"};
@@ -322,17 +322,31 @@ function foodPoints(p,k){ p=num(p); k=num(k);
   return {pts:p*0.1*tier.mult, ratio, tier};
 }
 
+// page bonus: 5 for page 1, ×1.75 each page after, capped at 50/page
+function pageBonus(pages){
+  let sum=0;
+  for(let i=0;i<pages;i++) sum += Math.min(5*Math.pow(1.75,i), 50);
+  return sum;
+}
+// study milestone: +5 first hour, doubling each hour, capped at 40/hour
+function studyBonus(minutes){
+  let sum=0;
+  for(let h=0;h<Math.floor(minutes/60);h++) sum += Math.min(5*Math.pow(2,h), 40);
+  return sum;
+}
+
 function calc(d){
-  const fiction = num(d.fictionPages)*0.75 + Math.floor(num(d.fictionPages)/25)*5;
-  const mind = num(d.medMin)*0.6 + num(d.journalPages)*2 + fiction;
+  const fiction = num(d.fictionPages)*1 + Math.floor(num(d.fictionPages)/25)*5;
+  const mind = num(d.medMin)*1 + num(d.journalPages)*2 + fiction;
   const foods = (d.foods||[]).map(f=>({...f, ...foodPoints(f.protein,f.kcal)}));
   const proteinTotal = foods.reduce((s,f)=>s+num(f.protein),0);
   const kcalTotal = foods.reduce((s,f)=>s+num(f.kcal),0);
-  const dietBonus = proteinTotal>=150 && kcalTotal<=2200 && kcalTotal>0 ? 3 : 0;
+  const dietBonus = proteinTotal>=150 && kcalTotal<=2200 && kcalTotal>0 ? Math.floor(proteinTotal/10) : 0;
   const fuel = foods.reduce((s,f)=>s+f.pts,0) + dietBonus;
   const words = num(d.words);
-  const craft = words*0.015 + Math.floor(words/400)*4 + num(d.chapters)*50;
-  const study = num(d.readMin)*0.3 + num(d.watchMin)*0.2 + num(d.notePages)*2;
+  const craft = words*0.025 + pageBonus(Math.floor(words/400)) + num(d.chapters)*50;
+  const studyMin = num(d.readMin) + num(d.watchMin);
+  const study = num(d.readMin)*0.3 + num(d.watchMin)*0.2 + num(d.notePages)*2 + studyBonus(studyMin);
   const sets = num(d.sets), ex = num(d.exercises);
   const exerciseBonus = ex>=5 && sets>0 ? ex : 0;
   const setBonus = Math.floor(sets/24)*5;
@@ -360,10 +374,11 @@ const QUICK = [
 ];
 
 // ── bank + streak engine ────────────────────────────────────────
-// Streak: a day counts at 50+. Bonus every 5 days, linear: +10, +20, +30…
+// Streak: a day counts at 50+. Day 5 ignites +50, then every streak day
+// pays (day+5): day 6 → +11, day 7 → +12… capped at +35 (reached day 30).
 // Decay: consecutive missed days cost 15 × 0.7^(n−1): −15, −10.5, −7.4…
-// Total damage asymptotes at −50, so a week off ≈ −44. Today is never a miss.
-const GOAL=50, MILESTONE=5, BONUS_STEP=10, MISS_BASE=15, MISS_DECAY=0.7;
+const GOAL=50, IGNITE_DAY=5, IGNITE_PTS=50, PAYOUT_CAP=35, MISS_BASE=15, MISS_DECAY=0.7;
+const streakPayout = n => n===IGNITE_DAY ? IGNITE_PTS : n>IGNITE_DAY ? Math.min(n+5, PAYOUT_CAP) : 0;
 const nextDate = k => { const d=new Date(k+"T12:00:00"); d.setDate(d.getDate()+1);
   const p=n=>String(n).padStart(2,"0");
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; };
@@ -382,7 +397,7 @@ function bankState(){
     const total = cursor===DATE ? todayTotal : (days[cursor]?._total||0);
     if(total >= GOAL){
       streak++; missRun=0;
-      if(streak % MILESTONE === 0) bonuses += BONUS_STEP * (streak/MILESTONE);
+      bonuses += streakPayout(streak);
     } else if(cursor !== DATE){           // past day under goal = miss
       streak=0; missRun++;
       decay += MISS_BASE * Math.pow(MISS_DECAY, missRun-1);
@@ -438,15 +453,17 @@ function render(){
 
   // bank + streak
   const b = bankState();
-  const toNext = MILESTONE - (b.streak % MILESTONE);
-  const nextBonus = BONUS_STEP * (Math.floor(b.streak/MILESTONE)+1);
   const sl = $("streakLine");
-  if(b.streak > 0){
+  if(b.streak >= IGNITE_DAY){
     sl.style.color = "var(--amber)";
-    sl.textContent = `⚡ STREAK ${b.streak}d — next bonus +${nextBonus} in ${toNext}d`;
+    const today = streakPayout(b.streak);
+    sl.textContent = `⚡ STREAK ${b.streak}d — IGNITED · +${fmt(today,0)} today, +${fmt(streakPayout(b.streak+1),0)} tomorrow`;
+  } else if(b.streak > 0){
+    sl.style.color = "var(--amber)";
+    sl.textContent = `⚡ STREAK ${b.streak}d — ignition +${IGNITE_PTS} in ${IGNITE_DAY-b.streak}d`;
   } else {
     sl.style.color = "var(--dim)";
-    sl.textContent = `no active streak — hit 50 to ignite (+${BONUS_STEP} at ${MILESTONE}d)`;
+    sl.textContent = `no active streak — hit 50 for ${IGNITE_DAY} days to ignite (+${IGNITE_PTS}, then daily payouts)`;
   }
   $("bankPts").textContent = fmt(b.bank);
   $("bankPts").style.color = b.bank<0 ? "var(--rose)" : "var(--amber)";
